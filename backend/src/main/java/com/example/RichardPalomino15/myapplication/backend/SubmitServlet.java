@@ -23,14 +23,12 @@ public class SubmitServlet extends HttpServlet {
 
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
 
-        Entity gameEntity = GameEntity.CreateGameEntity();
-        gameEntity.setProperty(GameEntity.GAME_IDENTITY_PROPERTY, "Game1");
-        gameEntity.setProperty(GameEntity.PLAYER_1_TURN_PROPERTY, "MoveStuff");
-        gameEntity.setProperty(GameEntity.PLAYER_2_TURN_PROPERTY, "AttackStuff");
-        gameEntity.setProperty(GameEntity.STATUS_PROPERTY, "Initial");
-
-        datastore.put(gameEntity);
-
+        Entity turnEntity = TurnEntity.CreateGameEntity();
+        turnEntity.setProperty(TurnEntity.GAME_IDENTITY_PROPERTY, "1");
+        turnEntity.setProperty(TurnEntity.TURN_NUMBER_PROPERTY, "1");
+        turnEntity.setProperty(TurnEntity.CURRENT_ORDERS_PROPERTY, "MoveStuff");
+        turnEntity.setProperty(TurnEntity.RESULTING_STATE_PROPERTY, "AttackStuff");
+        datastore.put(turnEntity);
     }
 
     @Override
