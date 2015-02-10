@@ -1,5 +1,6 @@
 package com.example.RichardPalomino15.myapplication.backend;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 
 import javax.servlet.ServletException;
@@ -12,14 +13,43 @@ import javax.servlet.http.HttpServletResponse;
  */
 public class QueryServlet extends HttpServlet {
 
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        super.doGet(req, resp);
-    }
+    public enum GameRequest {RESOLVED_TURN, TURN_ORDERS, BAD_REQUEST};
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        super.doPost(req, resp);
+        BufferedReader requestReader = req.getReader();
+        StringBuilder requestBuilder = new StringBuilder();
+
+        while ( requestReader.ready() )
+            requestBuilder.append(requestReader.readLine());
+
+        GameRequest requestType = GameRequest.BAD_REQUEST;
+
+        switch (requestBuilder.toString()) {
+            case "state":
+                requestType = GameRequest.RESOLVED_TURN;
+                break;
+            case "allOrders":
+                requestType = GameRequest.TURN_ORDERS;
+                break;
+            default:
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return;
+        }
+
+        resp.setStatus(HttpServletResponse.SC_ACCEPTED);
+
+        switch (requestType) {
+
+            case RESOLVED_TURN:
+                break;
+            case TURN_ORDERS:
+                break;
+            default:
+                break;
+        }
+
+        return;
     }
 }
 
