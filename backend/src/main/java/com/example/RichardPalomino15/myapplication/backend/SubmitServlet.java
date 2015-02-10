@@ -19,27 +19,22 @@ public class SubmitServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-//        super.doGet(req, resp);
-
-        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
-
-        Entity turnEntity = TurnEntity.CreateGameEntity();
-        turnEntity.setProperty(TurnEntity.GAME_IDENTITY_PROPERTY, "1");
-        turnEntity.setProperty(TurnEntity.TURN_NUMBER_PROPERTY, "1");
-        turnEntity.setProperty(TurnEntity.CURRENT_ORDERS_PROPERTY, "MoveStuff");
-        turnEntity.setProperty(TurnEntity.RESULTING_STATE_PROPERTY, "AttackStuff");
-        datastore.put(turnEntity);
+        super.doGet(req, resp);
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String s = "";
-        BufferedReader r = req.getReader();
 
-        while (r.ready())
-            s += r.readLine();
+        BufferedReader requestReader = req.getReader();
+        StringBuilder requestBuilder = new StringBuilder();
 
-        System.out.println(s);
+        while ( requestReader.ready() )
+            requestBuilder.append(requestReader.readLine());
+
+        System.out.println(requestBuilder.toString());
+
+
+
     }
 }
 

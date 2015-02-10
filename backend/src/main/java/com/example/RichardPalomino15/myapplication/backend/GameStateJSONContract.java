@@ -2,6 +2,8 @@ package com.example.RichardPalomino15.myapplication.backend;
 
 /**
  * Created by RichardPalomino on 2/9/2015.
+ *
+ * This class is the JSON contract used for storing the current GameState.
  */
 public class GameStateJSONContract {
 
