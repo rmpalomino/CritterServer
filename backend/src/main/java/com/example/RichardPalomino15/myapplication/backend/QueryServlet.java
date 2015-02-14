@@ -35,8 +35,9 @@ public class QueryServlet extends HttpServlet {
 
             String[] tokens = requestBuilder.toString().split("&");
             String[] gameTokens = tokens[0].split("=");
-            String[] turnTokens = tokens[1].split("=");
-            String[] requestType = tokens[2].split("=");
+            String[] playerToken = tokens[1].split("=");
+            String[] turnTokens = tokens[2].split("=");
+            String[] requestType = tokens[3].split("=");
 
             int gameNum = Integer.parseInt(gameTokens[1]);
             int turnNum = Integer.parseInt(turnTokens[1]);
