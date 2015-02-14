@@ -8,6 +8,7 @@ import com.google.appengine.api.datastore.Query;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.PrintWriter;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -25,7 +26,41 @@ public class MatchServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        super.doPost(req, resp);
+
+        BufferedReader requestReader = req.getReader();
+        StringBuilder requestBuilder = new StringBuilder();
+
+        while ( requestReader.ready() )
+            requestBuilder.append(requestReader.readLine());
+
+        String[] tokens = requestBuilder.toString().split("&");
+        String[] gameTokens = tokens[0].split("=");
+        int gameNum = Integer.parseInt(gameTokens[1]);
+
+        if (gameNum >= 0) {
+            DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+
+            Query.Filter gameFilter = new Query.FilterPredicate(GameEntity.GAME_IDENTITY, Query.FilterOperator.EQUAL, gameNum);
+            Query gameQuery = new Query(GameEntity.GAME_TYPE).setFilter(gameFilter);
+            PreparedQuery preparedGameQuery = datastore.prepare(gameQuery);
+
+            Entity gameEntity = preparedGameQuery.asSingleEntity();
+
+            if (gameEntity == null) {
+                Entity newGame = GameEntity.CreateGameEntity();
+                newGame.setProperty(GameEntity.GAME_IDENTITY, gameNum);
+                newGame.setProperty(GameEntity.GAME_STATUS, GameEntity.NEW_GAME);
+                resp.setStatus(HttpServletResponse.SC_NO_CONTENT);
+            }
+
+            else {
+                PrintWriter writer = resp.getWriter();
+                writer.print(gameEntity.getProperty(GameEntity.CURRENT_ORDERS_PREFIX + gameEntity.getProperty(GameEntity.TURN_NUMBER)));
+                resp.setStatus(HttpServletResponse.SC_OK);
+            }
+
+        }
+
     }
 }
 

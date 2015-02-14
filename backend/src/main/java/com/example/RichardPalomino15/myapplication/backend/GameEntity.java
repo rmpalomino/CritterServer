@@ -9,8 +9,9 @@ import com.google.appengine.api.datastore.Entity;
  */
 public class GameEntity {
 
-    public static final int NO_ORDERS = 0;
-    public static final int ONE_ORDER = 1;
+    public static final int NEW_GAME = 0;
+    public static final int NO_ORDERS = 1;
+    public static final int ONE_ORDER = 2;
 
     public static final String GAME_TYPE = "GameEntity";
     public static final String GAME_IDENTITY = "GID";
