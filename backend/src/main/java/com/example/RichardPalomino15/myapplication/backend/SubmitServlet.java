@@ -6,6 +6,8 @@ import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.PreparedQuery;
 import com.google.appengine.api.datastore.Query;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -40,10 +42,11 @@ public class SubmitServlet extends HttpServlet {
         try {
 
             String[] tokens = requestBuilder.toString().split("&");
+
             String[] gameTokens = tokens[0].split("=");
             String[] playerToken = tokens[1].split("=");
             String[] turnTokens = tokens[2].split("=");
-            String[] requestType = tokens[3].split("=");
+            String[] gameStateTokens = tokens[3].split("=");
 
             int gameNum = Integer.parseInt(gameTokens[1]);
             int turnNum = Integer.parseInt(turnTokens[1]);
@@ -57,11 +60,24 @@ public class SubmitServlet extends HttpServlet {
 
                 Entity gameEntity = preparedGameQuery.asSingleEntity();
 
-                Integer turn = (Integer)gameEntity.getProperty(GameEntity.TURN_NUMBER);
+                if (gameEntity.hasProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum))) {
 
-                String gameState = (String)gameEntity.getProperty(GameEntity.CURRENT_ORDERS_PREFIX + turn.toString());
+                    String gameState = (String)gameEntity.getProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum));
 
-                JsonParser jp = new JsonParser();
+                    JsonParser jp = new JsonParser();
+                    JsonObject gameJ = jp.parse(gameState).getAsJsonObject();
+                    JsonArray unitAJ = gameJ.get(GameStateJSONContract.UNITS).getAsJsonArray();
+                    for (int i = 0; i < unitAJ.size(); i++) {
+                        JsonObject unitJ = unitAJ.get(i).getAsJsonObject();
+                    }
+                }
+
+                else {
+                    gameEntity.setProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum), gameStateTokens[1]);
+                    gameEntity.setProperty(GameEntity.TURN_NUMBER, turnNum);
+                }
+
+
 
 
 
