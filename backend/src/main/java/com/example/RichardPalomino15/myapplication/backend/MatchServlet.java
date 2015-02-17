@@ -52,7 +52,8 @@ public class MatchServlet extends HttpServlet {
             if (gameEntity == null) {
                 Entity newGame = GameEntity.CreateGameEntity();
                 newGame.setProperty(GameEntity.GAME_IDENTITY, gameNum);
-                newGame.setProperty(GameEntity.GAME_STATUS, GameEntity.NEW_GAME);
+                newGame.setProperty(GameEntity.TURN_STATUS, GameEntity.NO_ORDERS);
+                newGame.setProperty(GameEntity.TURN_NUMBER, 0);
                 datastore.put(newGame);
                 System.out.printf("Created new game, num is %d\n", gameNum);
                 resp.setStatus(HttpServletResponse.SC_NO_CONTENT);

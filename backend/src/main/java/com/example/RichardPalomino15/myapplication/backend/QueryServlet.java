@@ -5,9 +5,11 @@ import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.PreparedQuery;
 import com.google.appengine.api.datastore.Query;
+import com.google.appengine.api.datastore.Text;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.PrintWriter;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -31,15 +33,17 @@ public class QueryServlet extends HttpServlet {
         while ( requestReader.ready() )
             requestBuilder.append(requestReader.readLine());
 
+        boolean badRequest = true;
+
         try {
 
             String[] tokens = requestBuilder.toString().split("&");
             String[] gameTokens = tokens[0].split("=");
             String[] playerToken = tokens[1].split("=");
             String[] turnTokens = tokens[2].split("=");
-            String[] requestType = tokens[3].split("=");
 
             int gameNum = Integer.parseInt(gameTokens[1]);
+            int playerNum = Integer.parseInt(playerToken[1]);
             int turnNum = Integer.parseInt(turnTokens[1]);
 
             if (gameNum >= 0) {
@@ -51,14 +55,20 @@ public class QueryServlet extends HttpServlet {
 
                 Entity gameEntity = preparedGameQuery.asSingleEntity();
 
+                if (gameEntity != null) {
+                    System.out.printf("Received a legit query for game %d, turn %d from player %d\n", gameNum, turnNum, playerNum);
+                    resp.addHeader("TURN_STATE", ((Long) gameEntity.getProperty(GameEntity.TURN_STATUS)).toString());
 
-            } else {
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                return;
+                    if (gameEntity.hasProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum))) {
+                        Text toSend = (Text) gameEntity.getProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum));
+                        resp.getWriter().print(toSend.getValue());
+                        badRequest = false;
+                    }
+                }
             }
 
-            System.out.println(turnNum);
-            System.out.println(tokens[1]);
+            else
+                badRequest = true;
         }
 
         catch (NumberFormatException e) {
@@ -66,7 +76,8 @@ public class QueryServlet extends HttpServlet {
         }
 
         finally {
-            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            if(badRequest)
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
         }
     }
 }

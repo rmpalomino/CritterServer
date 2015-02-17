@@ -48,16 +48,18 @@ public class SubmitServlet extends HttpServlet {
 
             String[] tokens = requestBuilder.toString().split("&");
 
+
             String[] gameTokens = tokens[0].split("=");
             String[] playerToken = tokens[1].split("=");
             String[] turnTokens = tokens[2].split("=");
             String[] gameStateTokens = tokens[3].split("=");
 
             String decoded = URLDecoder.decode(gameStateTokens[1], Charsets.UTF_8.name());
-//            System.out.println(decoded);
+            System.out.printf("Working with submission string: %s\n", decoded);
 
             int gameNum = Integer.parseInt(gameTokens[1]);
             int turnNum = Integer.parseInt(turnTokens[1]);
+            int playerNum = Integer.parseInt(playerToken[1]);
 
             if (gameNum >= 0) {
                 DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
@@ -70,8 +72,26 @@ public class SubmitServlet extends HttpServlet {
 //                if (gameEntity != null && gameEntity.hasProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum)))
 //                    System.out.println(gameEntity);
 
-                if (gameEntity.hasProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum))) {
+                //TODO: Extend past the first turn. (Check for turn number and turn status to check latest.)
 
+                if (gameEntity.hasProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum))) {
+                      long turn_status = (Long) gameEntity.getProperty(GameEntity.TURN_STATUS);
+
+                      if (turn_status == GameEntity.NO_ORDERS) {
+                            gameEntity.setProperty(GameEntity.CURRENT_ORDERS_PREFIX + GameEntity.TURN_NUMBER, new Text(decoded));
+                            gameEntity.setProperty(GameEntity.TURN_STATUS, playerNum);
+                            datastore.put(gameEntity);
+                            System.out.printf("Received first set of orders from player %d\n", playerNum);
+                      }
+
+                      else if (1 - turn_status == playerNum) {
+                          //TODO: Combine the two states.
+                          gameEntity.setProperty(GameEntity.TURN_STATUS, GameEntity.ALL_ORDERS);
+                          datastore.put(gameEntity);
+                          System.out.println("Received both orders, attempted to finalize turn.");
+                      }
+                        else
+                          System.out.println("Received orders for finalized turn.");
 //                    String gameState = (String)gameEntity.getProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum));
 //
 //                    JsonParser jp = new JsonParser();
