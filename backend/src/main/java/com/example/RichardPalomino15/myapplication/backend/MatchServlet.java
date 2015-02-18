@@ -18,12 +18,11 @@ import javax.servlet.http.HttpServletResponse;
 
 /**
  * Created by Richard Palomino 15 on 2/3/2015.
+ *
+ * Handles initial game requests, creating a new game if necessary or sending the latest completed
+ * turn otherwise.
  */
 public class MatchServlet extends HttpServlet {
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        super.doGet(req, resp);
-    }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -61,7 +60,11 @@ public class MatchServlet extends HttpServlet {
 
             else {
                 PrintWriter writer = resp.getWriter();
-                String respText = ((Text)gameEntity.getProperty(GameEntity.CURRENT_ORDERS_PREFIX + gameEntity.getProperty(GameEntity.TURN_NUMBER))).getValue();
+
+                long currentTurn = ((Long) gameEntity.getProperty(GameEntity.TURN_NUMBER));
+
+                System.out.println(GameEntity.CURRENT_ORDERS_PREFIX + currentTurn);
+                String respText = ((Text)gameEntity.getProperty(GameEntity.CURRENT_ORDERS_PREFIX + currentTurn)).getValue();
                 System.out.println("Sending response to client: \n" + respText);
                 writer.print(respText);
                 resp.setStatus(HttpServletResponse.SC_OK);

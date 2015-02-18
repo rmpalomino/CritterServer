@@ -5,19 +5,18 @@ import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.PreparedQuery;
 import com.google.appengine.api.datastore.Query;
+import com.google.appengine.api.datastore.Text;
 import com.google.appengine.repackaged.com.google.api.client.util.Charsets;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.google.appengine.api.datastore.Text;
+import com.google.gson.JsonSyntaxException;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.URLDecoder;
-import java.util.Iterator;
 import java.util.Map;
-
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -26,130 +25,125 @@ import javax.servlet.http.HttpServletResponse;
 
 /**
  * Created by Richard Palomino 15 on 2/3/2015.
+ *
+ * Handles the client's turn submissions.
  */
 public class SubmitServlet extends HttpServlet {
 
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        doPost(req, resp);
-    }
 
-    @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+	@Override
+	protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 
-        BufferedReader requestReader = req.getReader();
-        StringBuilder requestBuilder = new StringBuilder();
+		BufferedReader requestReader = req.getReader();
+		StringBuilder requestBuilder = new StringBuilder();
 
-        while ( requestReader.ready() )
-            requestBuilder.append(requestReader.readLine());
+		while (requestReader.ready())
+			requestBuilder.append(requestReader.readLine());
 
-        try {
+		boolean badRequest = true;
 
-            String[] tokens = requestBuilder.toString().split("&");
+		try {
 
+			String[] tokens = requestBuilder.toString().split("&");
 
-            String[] gameTokens = tokens[0].split("=");
-            String[] playerToken = tokens[1].split("=");
-            String[] turnTokens = tokens[2].split("=");
-            String[] gameStateTokens = tokens[3].split("=");
+			String[] gameTokens = tokens[0].split("=");
+			String[] playerToken = tokens[1].split("=");
+			String[] turnTokens = tokens[2].split("=");
+			String[] gameStateTokens = tokens[3].split("=");
 
-            String decoded = URLDecoder.decode(gameStateTokens[1], Charsets.UTF_8.name());
-            System.out.printf("Working with submission string: %s\n", decoded);
+			String decoded = URLDecoder.decode(gameStateTokens[1], Charsets.UTF_8.name());
+			System.out.printf("Working with submission string: %s\n", decoded);
 
-            int gameNum = Integer.parseInt(gameTokens[1]);
-            int turnNum = Integer.parseInt(turnTokens[1]);
-            int playerNum = Integer.parseInt(playerToken[1]);
+			int gameNum = Integer.parseInt(gameTokens[1]);
+			int turnNum = Integer.parseInt(turnTokens[1]);
+			int playerNum = Integer.parseInt(playerToken[1]);
 
-            if (gameNum >= 0) {
-                DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+			if (gameNum >= 0) {
+				DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
 
-                Query.Filter gameFilter = new Query.FilterPredicate(GameEntity.GAME_IDENTITY, Query.FilterOperator.EQUAL, gameNum);
-                Query gameQuery = new Query(GameEntity.GAME_TYPE).setFilter(gameFilter);
-                PreparedQuery preparedGameQuery = datastore.prepare(gameQuery);
+				Query.Filter gameFilter = new Query.FilterPredicate(GameEntity.GAME_IDENTITY, Query.FilterOperator.EQUAL, gameNum);
+				Query gameQuery = new Query(GameEntity.GAME_TYPE).setFilter(gameFilter);
+				PreparedQuery preparedGameQuery = datastore.prepare(gameQuery);
 
-                Entity gameEntity = preparedGameQuery.asSingleEntity();
+				Entity gameEntity = preparedGameQuery.asSingleEntity();
 
-                //TODO: Extend past the first turn. (Check for turn number and turn status to check latest.)
+				long turnStatus = (Long) gameEntity.getProperty(GameEntity.TURN_STATUS);
+				long currTurn = (Long) gameEntity.getProperty(GameEntity.TURN_NUMBER);
+//
+				//TODO: Extend past the first turn. (Check for turn number and turn status to check latest.)
 
-                if (gameEntity.hasProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum))) {
-                      long turn_status = (Long) gameEntity.getProperty(GameEntity.TURN_STATUS);
+				if (turnNum == currTurn) {
 
-                      if (turn_status == GameEntity.NO_ORDERS) {
-                            gameEntity.setProperty(GameEntity.CURRENT_ORDERS_PREFIX + turnNum, new Text(decoded));
-                            gameEntity.setProperty(GameEntity.TURN_STATUS, playerNum);
-                            datastore.put(gameEntity);
-                            System.out.printf("Received first set of orders from player %d\n", playerNum);
-                      }
+					if (turnStatus == GameEntity.NO_ORDERS) {
 
-                      else if (1 - turn_status == playerNum) {
-                          //TODO: Combine the two states.
-                          String receivedState = decoded + "";
-                          String gameState = ((Text)gameEntity.getProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum))).getValue();
-                          String cop = gameState + "";
+						if (gameEntity.hasProperty(GameEntity.CURRENT_ORDERS_PREFIX + turnNum)) {
+							gameEntity.setProperty(GameEntity.TURN_STATUS, playerNum);
+						}
 
-                          JsonParser rJP = new JsonParser();
-                          JsonObject rJ = rJP.parse(receivedState).getAsJsonObject();
-                          JsonArray rUnitAJ = rJ.get(GameStateJSONContract.UNITS).getAsJsonArray();
+						gameEntity.setProperty(GameEntity.CURRENT_ORDERS_PREFIX + turnNum, new Text(decoded));
+						datastore.put(gameEntity);
+						System.out.printf("Received first set of orders from player %d\n", playerNum);
+					}
 
-                          JsonParser gJP = new JsonParser();
-                          JsonObject gameJ = gJP.parse(gameState).getAsJsonObject();
-                          JsonArray unitAJ = gameJ.get(GameStateJSONContract.UNITS).getAsJsonArray();
-                          for (int i = 0; i < unitAJ.size(); i++) {
+					else if (1 - turnStatus == playerNum) {
 
-                              JsonObject unitJ = unitAJ.get(i).getAsJsonObject();
-                              if (unitJ.get(GameStateJSONContract.PLAYER).getAsInt() == playerNum) {
-                                  unitJ.entrySet().clear();
-                                  Iterator<Map.Entry<String, JsonElement>> it = rUnitAJ.get(i).getAsJsonObject().entrySet().iterator();
-                                  while (it.hasNext()) {
-                                      Map.Entry<String, JsonElement> item = it.next();
-                                      unitJ.add(item.getKey(), item.getValue());
-                                  }
-                              }
-                          }
+						String receivedState = decoded + "";
+						String gameState = ((Text) gameEntity.getProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum))).getValue();
 
-                          System.out.println(decoded);
-                          System.out.println(cop);
-                          System.out.println(gameJ.toString());
+						JsonParser rJP = new JsonParser();
+						JsonObject rJ = rJP.parse(receivedState).getAsJsonObject();
+						JsonArray rUnitAJ = rJ.get(GameStateJSONContract.UNITS).getAsJsonArray();
 
-                          gameEntity.setProperty(GameEntity.TURN_STATUS, GameEntity.ALL_ORDERS);
-                          datastore.put(gameEntity);
-                          System.out.println("Received both orders, attempted to finalize turn.");
-                      }
-                        else
-                          System.out.println("Received orders for finalized turn.");
+						JsonParser gJP = new JsonParser();
+						JsonObject gameJ = gJP.parse(gameState).getAsJsonObject();
+						JsonArray unitAJ = gameJ.get(GameStateJSONContract.UNITS).getAsJsonArray();
+						for (int i = 0; i < unitAJ.size(); i++) {
 
-                }
+							JsonObject unitJ = unitAJ.get(i).getAsJsonObject();
+							if (unitJ.get(GameStateJSONContract.PLAYER).getAsInt() == playerNum) {
+								unitJ.entrySet().clear();
+								for (Map.Entry<String, JsonElement> item : rUnitAJ.get(i).getAsJsonObject().entrySet()) {
+									unitJ.add(item.getKey(), item.getValue());
+								}
+							}
+						}
 
-                else {
-                    gameEntity.setProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum), new Text(decoded));
-                    gameEntity.setProperty(GameEntity.TURN_NUMBER, turnNum);
-                    datastore.put(gameEntity);
-                }
+//						gameEntity.setProperty(GameEntity.TURN_NUMBER, turnNum + 1);
+						gameEntity.setProperty(GameEntity.TURN_STATUS, GameEntity.ALL_ORDERS);
+						gameEntity.setProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum), new Text(gameJ.toString()));
+						datastore.put(gameEntity);
 
-
-
-
-
-            } else {
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                return;
-            }
-
-            System.out.println(turnNum);
-            System.out.println(tokens[1]);
-        }
-
-        catch (NumberFormatException e) {
-            e.printStackTrace();
-        }
-
-        finally {
-            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-        }
+						System.out.println("Received both orders, attempted to finalize turn.");
+					}
+					badRequest = false;
+				}
+				else if (turnNum == currTurn + 1) {
+					//Received orders for next turn, update current turn and status of turn
+					gameEntity.setProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum), new Text(decoded));
+					gameEntity.setProperty(GameEntity.TURN_STATUS, playerNum);
+					gameEntity.setProperty(GameEntity.TURN_NUMBER, turnNum);
+					datastore.put(gameEntity);
+					badRequest = false;
+				}
+			}
+		} catch (NumberFormatException nE) {
+			nE.printStackTrace();
+		} catch (JsonSyntaxException jE) {
+			System.out.println("Received orders were invalid JSON.");
+			jE.printStackTrace();
+		} catch (PreparedQuery.TooManyResultsException pE) {
+			System.out.println("Check the game number storage, there are multiple games with same number.");
+			pE.printStackTrace();
+		}
+		finally {
+			if(badRequest) {
+				System.out.println("Server is in an invalid state.");
+				resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			}
+		}
 
 
-
-    }
+	}
 }
 
 

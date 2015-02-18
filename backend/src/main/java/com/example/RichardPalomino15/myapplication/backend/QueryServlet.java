@@ -9,7 +9,6 @@ import com.google.appengine.api.datastore.Text;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.PrintWriter;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -18,11 +17,10 @@ import javax.servlet.http.HttpServletResponse;
 
 /**
  * Created by Richard Palomino 15 on 2/3/2015.
+ *
+ * Answers client's game state requests.
  */
 public class QueryServlet extends HttpServlet {
-
-    public static final int STATUS_REQUEST = 0;
-    public static final int ORDERS_REQUEST = 1;
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -34,6 +32,9 @@ public class QueryServlet extends HttpServlet {
             requestBuilder.append(requestReader.readLine());
 
         boolean badRequest = true;
+		int turnNum = -1;
+		int gameNum = -1;
+		int playerNum = -1;
 
         try {
 
@@ -42,11 +43,11 @@ public class QueryServlet extends HttpServlet {
             String[] playerToken = tokens[1].split("=");
             String[] turnTokens = tokens[2].split("=");
 
-            int gameNum = Integer.parseInt(gameTokens[1]);
-            int playerNum = Integer.parseInt(playerToken[1]);
-            int turnNum = Integer.parseInt(turnTokens[1]);
+			gameNum = Integer.parseInt(gameTokens[1]);
+			playerNum = Integer.parseInt(playerToken[1]);
+			turnNum = Integer.parseInt(turnTokens[1]);
 
-            if (gameNum >= 0) {
+			if (gameNum >= 0) {
                 DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
 
                 Query.Filter gameFilter = new Query.FilterPredicate(GameEntity.GAME_IDENTITY, Query.FilterOperator.EQUAL, gameNum);
@@ -55,20 +56,27 @@ public class QueryServlet extends HttpServlet {
 
                 Entity gameEntity = preparedGameQuery.asSingleEntity();
 
-                if (gameEntity != null) {
-                    System.out.printf("Received a legit query for game %d, turn %d from player %d\n", gameNum, turnNum, playerNum);
-                    resp.addHeader("TURN_STATE", ((Long) gameEntity.getProperty(GameEntity.TURN_STATUS)).toString());
+                long turnStatus = ((Long) gameEntity.getProperty(GameEntity.TURN_STATUS));
+                long currentTurn = ((Long) gameEntity.getProperty(GameEntity.TURN_NUMBER));
 
-                    if (gameEntity.hasProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum))) {
-                        Text toSend = (Text) gameEntity.getProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum));
-                        resp.getWriter().print(toSend.getValue());
-                        badRequest = false;
-                    }
+                if (turnNum == currentTurn) {
+                    System.out.printf("Received a legit query for game %d, turn %d from player %d\n", gameNum, turnNum, playerNum);
+                    System.out.println("Sending state: " + turnStatus);
+
+					resp.addHeader("TURN_STATE", Long.toString(turnStatus));
+					Text toSend = (Text) gameEntity.getProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum));
+					resp.getWriter().print(toSend.getValue());
+					badRequest = false;
+
                 }
+
+				else if(turnStatus == GameEntity.ALL_ORDERS && turnNum == currentTurn + 1) {
+					resp.addHeader("TURN_STATE", Integer.toString(GameEntity.NO_ORDERS));
+					badRequest = false;
+				}
+
             }
 
-            else
-                badRequest = true;
         }
 
         catch (NumberFormatException e) {
@@ -76,8 +84,11 @@ public class QueryServlet extends HttpServlet {
         }
 
         finally {
-            if(badRequest)
-                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            if(badRequest) {
+				System.out.println("Server is in an invalid state during query.");
+				System.out.printf("Request was from player %d, send game %d, turn %d\n", playerNum, gameNum, turnNum);
+				resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			}
         }
     }
 }
