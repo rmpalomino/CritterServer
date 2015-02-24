@@ -67,20 +67,25 @@ public class SubmitServlet extends HttpServlet {
 
 				Entity gameEntity = preparedGameQuery.asSingleEntity();
 
-				long turnStatus = (Long) gameEntity.getProperty(GameEntity.TURN_STATUS);
+				long turnStatus = -9;
+				if (gameEntity.hasProperty(GameEntity.TURN_STATUS)) {
+					if (gameEntity.getProperty(GameEntity.TURN_STATUS) != null)
+						turnStatus = (Long) gameEntity.getProperty(GameEntity.TURN_STATUS);
+				}
+				else
+					System.out.println("The entity is missing turn status.");
+
 				long currTurn = (Long) gameEntity.getProperty(GameEntity.TURN_NUMBER);
-//
-				//TODO: Extend past the first turn. (Check for turn number and turn status to check latest.)
 
 				if (turnNum == currTurn) {
 
 					if (turnStatus == GameEntity.NO_ORDERS) {
 
 						if (gameEntity.hasProperty(GameEntity.CURRENT_ORDERS_PREFIX + turnNum)) {
-							gameEntity.setProperty(GameEntity.TURN_STATUS, playerNum);
+							gameEntity.setUnindexedProperty(GameEntity.TURN_STATUS, playerNum);
 						}
 
-						gameEntity.setProperty(GameEntity.CURRENT_ORDERS_PREFIX + turnNum, new Text(decoded));
+						gameEntity.setUnindexedProperty(GameEntity.CURRENT_ORDERS_PREFIX + turnNum, new Text(decoded));
 						datastore.put(gameEntity);
 						System.out.printf("Received first set of orders from player %d\n", playerNum);
 					}
@@ -108,9 +113,8 @@ public class SubmitServlet extends HttpServlet {
 							}
 						}
 
-//						gameEntity.setProperty(GameEntity.TURN_NUMBER, turnNum + 1);
-						gameEntity.setProperty(GameEntity.TURN_STATUS, GameEntity.ALL_ORDERS);
-						gameEntity.setProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum), new Text(gameJ.toString()));
+						gameEntity.setUnindexedProperty(GameEntity.TURN_STATUS, GameEntity.ALL_ORDERS);
+						gameEntity.setUnindexedProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum), new Text(gameJ.toString()));
 						datastore.put(gameEntity);
 
 						System.out.println("Received both orders, attempted to finalize turn.");
@@ -119,9 +123,9 @@ public class SubmitServlet extends HttpServlet {
 				}
 				else if (turnNum == currTurn + 1) {
 					//Received orders for next turn, update current turn and status of turn
-					gameEntity.setProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum), new Text(decoded));
-					gameEntity.setProperty(GameEntity.TURN_STATUS, playerNum);
-					gameEntity.setProperty(GameEntity.TURN_NUMBER, turnNum);
+					gameEntity.setUnindexedProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum), new Text(decoded));
+					gameEntity.setUnindexedProperty(GameEntity.TURN_STATUS, playerNum);
+					gameEntity.setUnindexedProperty(GameEntity.TURN_NUMBER, turnNum);
 					datastore.put(gameEntity);
 					badRequest = false;
 				}

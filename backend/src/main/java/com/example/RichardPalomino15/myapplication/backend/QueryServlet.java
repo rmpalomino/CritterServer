@@ -56,14 +56,17 @@ public class QueryServlet extends HttpServlet {
 
                 Entity gameEntity = preparedGameQuery.asSingleEntity();
 
-                long turnStatus = ((Long) gameEntity.getProperty(GameEntity.TURN_STATUS));
+				if (!gameEntity.hasProperty(GameEntity.TURN_STATUS))
+					System.out.println("failed to save turn status.");
+
+                long turnStatus = ((Long) gameEntity.getProperty(GameEntity.TURN_STATUS)).longValue();
                 long currentTurn = ((Long) gameEntity.getProperty(GameEntity.TURN_NUMBER));
 
                 if (turnNum == currentTurn) {
                     System.out.printf("Received a legit query for game %d, turn %d from player %d\n", gameNum, turnNum, playerNum);
                     System.out.println("Sending state: " + turnStatus);
 
-					resp.addHeader("TURN_STATE", Long.toString(turnStatus));
+					resp.addHeader(NetworkContract.TURN_STATUS_HEADER, Long.toString(turnStatus));
 					Text toSend = (Text) gameEntity.getProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum));
 					resp.getWriter().print(toSend.getValue());
 					badRequest = false;
@@ -71,7 +74,7 @@ public class QueryServlet extends HttpServlet {
                 }
 
 				else if(turnStatus == GameEntity.ALL_ORDERS && turnNum == currentTurn + 1) {
-					resp.addHeader("TURN_STATE", Integer.toString(GameEntity.NO_ORDERS));
+					resp.addHeader(NetworkContract.TURN_STATUS_HEADER, Integer.toString(GameEntity.NO_ORDERS));
 					badRequest = false;
 				}
 
