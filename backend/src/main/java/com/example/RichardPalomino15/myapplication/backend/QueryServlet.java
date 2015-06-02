@@ -16,7 +16,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /**
- * Created by Richard Palomino 15 on 2/3/2015.
+ * Created by Richard Palomino 15 on 2/3/2015. Updated 3/7/2015.
  *
  * Answers client's game state requests.
  */
@@ -31,9 +31,10 @@ public class QueryServlet extends HttpServlet {
         while ( requestReader.ready() )
             requestBuilder.append(requestReader.readLine());
 
+		//Strict query check. Should only be updated to false if the query was successful
         boolean badRequest = true;
 		int turnNum = -1;
-		int gameNum = -1;
+		long gameNum = -1L;
 		int playerNum = -1;
 
         try {
@@ -43,7 +44,8 @@ public class QueryServlet extends HttpServlet {
             String[] playerToken = tokens[1].split("=");
             String[] turnTokens = tokens[2].split("=");
 
-			gameNum = Integer.parseInt(gameTokens[1]);
+			//May throw NumberFormatException if the query text is bad
+            gameNum = Long.parseLong(gameTokens[1]);
 			playerNum = Integer.parseInt(playerToken[1]);
 			turnNum = Integer.parseInt(turnTokens[1]);
 
@@ -51,17 +53,25 @@ public class QueryServlet extends HttpServlet {
                 DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
 
                 Query.Filter gameFilter = new Query.FilterPredicate(GameEntity.GAME_IDENTITY, Query.FilterOperator.EQUAL, gameNum);
-                Query gameQuery = new Query(GameEntity.GAME_TYPE).setFilter(gameFilter);
+                Query gameQuery = new Query(GameEntity.ENTITY_TYPE).setFilter(gameFilter);
                 PreparedQuery preparedGameQuery = datastore.prepare(gameQuery);
 
-                Entity gameEntity = preparedGameQuery.asSingleEntity();
+				Entity gameEntity = null;
+				try {
+					gameEntity = preparedGameQuery.asSingleEntity();
+				} catch(PreparedQuery.TooManyResultsException e) {
+					e.printStackTrace();
+				}
 
+				//Ensure turn status persisted
 				if (!gameEntity.hasProperty(GameEntity.TURN_STATUS))
 					System.out.println("failed to save turn status.");
 
+				//Get the turn status and number saved in the datastore
                 long turnStatus = ((Long) gameEntity.getProperty(GameEntity.TURN_STATUS)).longValue();
                 long currentTurn = ((Long) gameEntity.getProperty(GameEntity.TURN_NUMBER));
 
+				//If the
                 if (turnNum == currentTurn) {
                     System.out.printf("Received a legit query for game %d, turn %d from player %d\n", gameNum, turnNum, playerNum);
                     System.out.println("Sending state: " + turnStatus);

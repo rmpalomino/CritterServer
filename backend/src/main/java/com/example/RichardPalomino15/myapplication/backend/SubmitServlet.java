@@ -1,12 +1,12 @@
 package com.example.RichardPalomino15.myapplication.backend;
 
+import com.google.api.client.util.Charsets;
 import com.google.appengine.api.datastore.DatastoreService;
 import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.PreparedQuery;
 import com.google.appengine.api.datastore.Query;
 import com.google.appengine.api.datastore.Text;
-import com.google.appengine.repackaged.com.google.api.client.util.Charsets;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -52,9 +52,9 @@ public class SubmitServlet extends HttpServlet {
 			String[] gameStateTokens = tokens[3].split("=");
 
 			String decoded = URLDecoder.decode(gameStateTokens[1], Charsets.UTF_8.name());
-			System.out.printf("Working with submission string: %s\n", decoded);
+//			System.out.printf("Working with submission string: %s\n", decoded);
 
-			int gameNum = Integer.parseInt(gameTokens[1]);
+			long gameNum = Long.parseLong(gameTokens[1]);
 			int turnNum = Integer.parseInt(turnTokens[1]);
 			int playerNum = Integer.parseInt(playerToken[1]);
 
@@ -62,7 +62,7 @@ public class SubmitServlet extends HttpServlet {
 				DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
 
 				Query.Filter gameFilter = new Query.FilterPredicate(GameEntity.GAME_IDENTITY, Query.FilterOperator.EQUAL, gameNum);
-				Query gameQuery = new Query(GameEntity.GAME_TYPE).setFilter(gameFilter);
+				Query gameQuery = new Query(GameEntity.ENTITY_TYPE).setFilter(gameFilter);
 				PreparedQuery preparedGameQuery = datastore.prepare(gameQuery);
 
 				Entity gameEntity = preparedGameQuery.asSingleEntity();
@@ -79,7 +79,7 @@ public class SubmitServlet extends HttpServlet {
 
 				if (turnNum == currTurn) {
 
-					if (turnStatus == GameEntity.NO_ORDERS) {
+					if (turnStatus == GameEntity.NO_ORDERS) { // No orders so copy first submission
 
 						if (gameEntity.hasProperty(GameEntity.CURRENT_ORDERS_PREFIX + turnNum)) {
 							gameEntity.setUnindexedProperty(GameEntity.TURN_STATUS, playerNum);
@@ -87,10 +87,10 @@ public class SubmitServlet extends HttpServlet {
 
 						gameEntity.setUnindexedProperty(GameEntity.CURRENT_ORDERS_PREFIX + turnNum, new Text(decoded));
 						datastore.put(gameEntity);
-						System.out.printf("Received first set of orders from player %d\n", playerNum);
+//						System.out.printf("Received first set of orders from player %d\n", playerNum);
 					}
 
-					else if (1 - turnStatus == playerNum) {
+					else if (1 - turnStatus == playerNum) { //Get new player's orders and update their units
 
 						String receivedState = decoded + "";
 						String gameState = ((Text) gameEntity.getProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum))).getValue();
@@ -100,16 +100,22 @@ public class SubmitServlet extends HttpServlet {
 						JsonArray rUnitAJ = rJ.get(GameStateJSONContract.UNITS).getAsJsonArray();
 
 						JsonParser gJP = new JsonParser();
+
+						//Full GameState JSON
 						JsonObject gameJ = gJP.parse(gameState).getAsJsonObject();
+
+						//Only the Unit Array
 						JsonArray unitAJ = gameJ.get(GameStateJSONContract.UNITS).getAsJsonArray();
 						for (int i = 0; i < unitAJ.size(); i++) {
 
 							JsonObject unitJ = unitAJ.get(i).getAsJsonObject();
+
 							if (unitJ.get(GameStateJSONContract.PLAYER).getAsInt() == playerNum) {
 								unitJ.entrySet().clear();
 								for (Map.Entry<String, JsonElement> item : rUnitAJ.get(i).getAsJsonObject().entrySet()) {
 									unitJ.add(item.getKey(), item.getValue());
 								}
+
 							}
 						}
 
@@ -117,7 +123,7 @@ public class SubmitServlet extends HttpServlet {
 						gameEntity.setUnindexedProperty(GameEntity.CURRENT_ORDERS_PREFIX + Integer.toString(turnNum), new Text(gameJ.toString()));
 						datastore.put(gameEntity);
 
-						System.out.println("Received both orders, attempted to finalize turn.");
+//						System.out.println("Received both orders, attempted to finalize turn.");
 					}
 					badRequest = false;
 				}
@@ -133,15 +139,15 @@ public class SubmitServlet extends HttpServlet {
 		} catch (NumberFormatException nE) {
 			nE.printStackTrace();
 		} catch (JsonSyntaxException jE) {
-			System.out.println("Received orders were invalid JSON.");
+//			System.out.println("Received orders were invalid JSON.");
 			jE.printStackTrace();
 		} catch (PreparedQuery.TooManyResultsException pE) {
-			System.out.println("Check the game number storage, there are multiple games with same number.");
+//			System.out.println("Check the game number storage, there are multiple games with same number.");
 			pE.printStackTrace();
 		}
 		finally {
 			if(badRequest) {
-				System.out.println("Server is in an invalid state.");
+//				System.out.println("Server is in an invalid state.");
 				resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
 			}
 		}
